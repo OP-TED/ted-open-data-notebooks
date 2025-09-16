@@ -30,16 +30,8 @@ def _(mo):
 
 
 @app.cell
-def _(mo, notices_per_day_query, selected_date):
-    mo.md(
-        rf"""
-    Select a date: {selected_date}
-
-    ```sparql
-    {notices_per_day_query}
-    ```
-    """
-    )
+def _(mo, selected_date):
+    mo.md(rf"""Select a date: {selected_date}""")
     return
 
 
@@ -47,6 +39,20 @@ def _(mo, notices_per_day_query, selected_date):
 def _(do_query, notices_per_day_query):
     notices = do_query(notices_per_day_query)
     notices
+    return
+
+
+@app.cell
+def _(mo, notices_per_day_query):
+    mo.md(
+        rf"""
+    The query used
+
+    ```sparql
+    {notices_per_day_query}
+    ```
+    """
+    )
     return
 
 
