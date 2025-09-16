@@ -111,6 +111,28 @@ def _(range_of_uploads):
 
 
 @app.cell
+def _(mo, notice_raw_count_query, pipeline_activity_query):
+    mo.md(
+        rf"""
+    ## Queries
+
+    Query for the number of notices by publication date
+
+    ```sparql
+    {notice_raw_count_query}
+    ```
+
+    Query for the number of notices uploaded to Cellar per day
+
+    ```sparql
+    {pipeline_activity_query}
+    ```
+    """
+    )
+    return
+
+
+@app.cell
 def _(alt, notice_raw_count):
     # define selection (click on bars)
     select_bar = alt.selection_point(fields=["date"], on="click")
