@@ -16,7 +16,7 @@ curl -LsSf https://astral.sh/uv/install.sh | sh
 # Run the build.py script using uv
 # This is interesting as it works without explicitly installing
 # the dependencies before running this script - uv handles this automatically
-# 
+#
 # Parameters:
 #   --output_dir '_site': Specifies where to output the generated site files
 #                         '_site' is a common convention for static site generators
@@ -26,4 +26,4 @@ curl -LsSf https://astral.sh/uv/install.sh | sh
 #                                            for a clean, responsive design
 uv run build.py \
        --output_dir '_site' \
-       --template 'templates/tailwind.html.j2'
+       --template 'templates/index.html.j2'

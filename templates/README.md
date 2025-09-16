@@ -2,9 +2,9 @@
 
 ## Overview
 
-This directory contains Jinja2 templates used by the build 
-script to generate HTML pages for the marimo WebAssembly + GitHub Pages project. 
-Templates define the structure and appearance of the generated pages, 
+This directory contains Jinja2 templates used by the build
+script to generate HTML pages for the marimo WebAssembly + GitHub Pages project.
+Templates define the structure and appearance of the generated pages,
 particularly the index page that lists all notebooks and apps.
 
 ## Template Requirements
@@ -22,14 +22,14 @@ A template should be a valid HTML file with Jinja2 syntax for dynamic content. T
 Templates receive the following variables from the build script:
 
 - `notebooks`: A list of dictionaries containing information about notebooks
-  - Each notebook has:
-    - `display_name`: The formatted name of the notebook (e.g., "Penguins" instead of "penguins")
-    - `html_path`: The path to the HTML file for the notebook
+    - Each notebook has:
+        - `display_name`: The formatted name of the notebook (e.g., "Penguins" instead of "penguins")
+        - `html_path`: The path to the HTML file for the notebook
 
 - `apps`: A list of dictionaries containing information about apps
-  - Each app has:
-    - `display_name`: The formatted name of the app
-    - `html_path`: The path to the HTML file for the app
+    - Each app has:
+        - `display_name`: The formatted name of the app
+        - `html_path`: The path to the HTML file for the app
 
 ### Required Sections
 
@@ -75,18 +75,10 @@ To use a custom template with the build script, use the `--template` parameter:
 uv run .github/scripts/build.py --output-dir _site --template templates/your-custom-template.html.j2
 ```
 
-## Example Templates
-
-This repository includes three example templates:
-
-1. `index.html.j2`: A less lean template with more styling and a footer
-2. `tailwind.html.j2`: A minimal and lean template using Tailwind CSS
-
 ## Best Practices
 
-1. **Styling**: 
-   - Include CSS directly in the template using `<style>` tags for simplicity, or
-   - Use Tailwind CSS via CDN for a utility-first approach without custom CSS
+1. **Styling**:
+    - Include CSS directly in the template using `<style>` tags for simplicity, or
 2. **Responsive Design**: Ensure the template works well on different screen sizes
 3. **Conditional Sections**: Use `{% if %}` blocks to conditionally display sections based on data availability
 4. **Comments**: Include comments in your template to explain complex sections
