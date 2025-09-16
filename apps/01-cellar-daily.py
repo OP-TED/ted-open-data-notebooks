@@ -17,21 +17,24 @@ app = marimo.App(width="full")
 def _():
     import pandas as pd
     import marimo as mo
+    import requests
 
     from pandas import json_normalize
     from SPARQLWrapper import SPARQLWrapper, JSON
-    return JSON, SPARQLWrapper, mo, pd
-
-
-@app.cell(hide_code=True)
-def _(mo):
-    mo.md("""# Notice Statistics for a single day""")
-    return
+    return JSON, SPARQLWrapper, mo, pd, requests
 
 
 @app.cell
 def _(mo, selected_date):
-    mo.md(rf"""Select a date: {selected_date}""")
+    mo.md(
+        rf"""
+    # Notice Statistics for a single day
+
+    Choose the date for your analysis. The dashboard will automatically update based on your selection.
+
+    Select a date: {selected_date}
+    """
+    )
     return
 
 
@@ -39,6 +42,20 @@ def _(mo, selected_date):
 def _(do_query, notices_per_day_query):
     notices = do_query(notices_per_day_query)
     notices
+    return (notices,)
+
+
+@app.cell
+def _(mo, notices, selected_date, ted_daily):
+    mo.md(
+        rf"""
+    ## Comparison with TED API
+
+    Notices in Cellar for {selected_date.value.isoformat()}: **{len(notices)} Notices**
+
+    Notices reported by TED API for the same day: **{ted_daily['totalNoticeCount']} Notices**
+    """
+    )
     return
 
 
@@ -46,7 +63,9 @@ def _(do_query, notices_per_day_query):
 def _(mo, notices_per_day_query):
     mo.md(
         rf"""
-    The query used
+    ## Queries
+
+    The following query was used
 
     ```sparql
     {notices_per_day_query}
@@ -60,20 +79,42 @@ def _(mo, notices_per_day_query):
 def _(selected_date):
     notices_per_day_query = """
     PREFIX epo: <http://data.europa.eu/a4g/ontology#>
-    PREFIX skos: <http://www.w3.org/2004/02/skos/core#>  
+    PREFIX skos: <http://www.w3.org/2004/02/skos/core#>
     PREFIX xsd: <http://www.w3.org/2001/XMLSchema#>
 
-    SELECT DISTINCT *
+    SELECT ?publicationNumber ?OJSIssueNumber ?procedureType ?noticeType ?formType
+
     WHERE {
-        GRAPH ?g {
-        FILTER (?publicationDate = "%s"^^xsd:date)
-      	?notice a epo:Notice ; 
-    		epo:hasPublicationDate ?publicationDate ;
-            epo:hasOJSIssueNumber ?OJSIssueNumber ;
-    	    epo:hasNoticePublicationNumber ?publicationNumber ;
-    	    epo:hasNoticeType ?noticeTypeUri ;
-    	    epo:hasFormType ?formTypeUri .
-        }
+
+      FILTER (?publicationDate = "%s"^^xsd:date)
+
+      GRAPH ?g {
+        ?notice a epo:Notice ;
+                epo:hasPublicationDate ?publicationDate ;
+                epo:hasNoticePublicationNumber ?publicationNumber ;
+                 epo:hasOJSIssueNumber ?OJSIssueNumber ;
+                epo:hasNoticeType ?noticeTypeUri ;
+                epo:hasFormType ?formTypeUri ;
+                epo:refersToProcedure [
+                     a epo:Procedure ;
+                     epo:hasProcedureType ?procedureTypeUri
+               ] .
+      }
+
+      # Retrieve the label in english for noticeTypeUri
+      ?noticeTypeUri a skos:Concept ;
+                     skos:prefLabel ?noticeType .
+      FILTER (lang(?noticeType) = "en")
+
+      # Retrieve the label in english for formTypeUri
+      ?formTypeUri a skos:Concept ;
+                   skos:prefLabel ?formType .
+      FILTER (lang(?formType) = "en")
+
+      # Retrieve the label in english for procedureTypeUri
+      ?procedureTypeUri a skos:Concept ;
+                        skos:prefLabel ?procedureType .
+      FILTER (lang(?procedureType) = "en")
     }
     """ % (selected_date.value.isoformat())
     return (notices_per_day_query,)
@@ -99,6 +140,33 @@ def _(JSON, SPARQLWrapper, pd):
 def _(mo):
     selected_date = mo.ui.date(value="2025-05-23")
     return (selected_date,)
+
+
+@app.cell
+def _(get_daily_notices, selected_date):
+    ted_daily = get_daily_notices(selected_date.value.isoformat())
+    return (ted_daily,)
+
+
+@app.cell
+def _(requests):
+    def get_daily_notices(date: str) -> dict:
+        date_formatted = date.replace("-", "")
+        api_url = "https://api.ted.europa.eu/v3/notices/search"
+
+        request_body = {
+            "query": f"publication-date = {date_formatted}",
+            "scope": "ALL",
+            "fields": ["publication-date"],
+        }
+
+        response = requests.post(
+            api_url, headers={"Accept": "application/json"}, json=request_body
+        )
+
+        result = response.json()
+        return result
+    return (get_daily_notices,)
 
 
 if __name__ == "__main__":
