@@ -90,6 +90,22 @@
 
     <main class="container">
 
+    {% if apps %}
+    <h2 class="section-title">Apps</h2>
+    <p>Interactive applications in run mode - code is hidden for a clean user interface</p>
+    <div class="cards">
+      {% for app in apps %}
+      <!-- {{ app.display_name }} App -->
+      <div class="card">
+        <div class="card-header app">{{ app.display_name }}</div>
+        <div class="card-body">
+          <a href="{{ app.html_path }}" class="card-link app">Open App</a>
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+    {% endif %}
+
     {% if notebooks %}
     <h2 class="section-title">Notebooks</h2>
     <p>Interactive notebooks in edit mode - you can modify and experiment with the code</p>
@@ -106,21 +122,6 @@
     </div>
     {% endif %}
 
-    {% if apps %}
-    <h2 class="section-title">Apps</h2>
-    <p>Interactive applications in run mode - code is hidden for a clean user interface</p>
-    <div class="cards">
-      {% for app in apps %}
-      <!-- {{ app.display_name }} App -->
-      <div class="card">
-        <div class="card-header app">{{ app.display_name }}</div>
-        <div class="card-body">
-          <a href="{{ app.html_path }}" class="card-link app">Open App</a>
-        </div>
-      </div>
-      {% endfor %}
-    </div>
-    {% endif %}
   </main>
 
 </body>
