@@ -30,11 +30,11 @@ def _():
 def _(mo, selected_date):
     mo.md(
         rf"""
-    # Information about competition notices published on a specific date
+    # Competition Notices Published on a Specific Date
 
-    Choose the date for your analysis. The dashboard will automatically update based on your selection.
+    Pick a date to analyze. The dashboard will automatically update to reflect your selection.
 
-    Select a date: {selected_date}
+    Selected date: {selected_date}
     """
     )
     return

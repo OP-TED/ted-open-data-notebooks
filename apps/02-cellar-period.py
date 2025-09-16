@@ -17,7 +17,7 @@ app = marimo.App(width="full")
 def _(mo):
     mo.md(
         """
-    # Notice Statistics Dashboard
+    # Cellar Statistics Dashboard
 
     This dashboard provides basic analytics for notices stored in Cellar,
     including publication patterns, upload trends, and temporal distributions.
