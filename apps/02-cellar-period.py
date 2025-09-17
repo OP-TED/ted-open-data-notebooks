@@ -352,7 +352,6 @@ def _():
     WHERE {
       ?noticeTypeUri a skos:Concept ;
           skos:topConceptOf <http://publications.europa.eu/resource/authority/notice-type> ;
-          euvoc:status <http://publications.europa.eu/resource/authority/concept-status/CURRENT>;
           skos:prefLabel ?label .
       FILTER (lang(?label) = "en") .
     }
