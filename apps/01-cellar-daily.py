@@ -76,9 +76,9 @@ def _(chart1, chart2, mo, notices, selected_date, ted_daily):
         rf"""
     ## Comparison with TED API
 
-    Notices in Cellar for {selected_date.value.isoformat()}: **{len(notices)} Notices**
+    Notices reported by TED API for {selected_date.value.isoformat()}: **{ted_daily["totalNoticeCount"]} Notices**
 
-    Notices reported by TED API for the same day: **{ted_daily["totalNoticeCount"]} Notices**
+    Notices in Cellar for the same day: **{len(notices)} Notices**
 
     ## Notice distribution
 
@@ -122,7 +122,6 @@ def _(selected_date):
       }
       FILTER (?publicationDate = "%s"^^xsd:date)
     }
-    LIMIT 1000
     """ % (selected_date.value.isoformat())
     return (notices_per_day_query,)
 
