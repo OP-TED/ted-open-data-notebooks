@@ -3,7 +3,9 @@
 # dependencies = [
 #     "altair==5.4.1",
 #     "marimo",
+#     "sparqlwrapper==2.0.0",
 #     "vega-datasets==0.9.0",
+#     "pyarrow",
 # ]
 # ///
 
@@ -69,8 +71,9 @@ def _(mo):
 
 
 @app.cell
-def _(notices):
-    notices
+def _(bars, mo, scatter):
+    chart = mo.ui.altair_chart(scatter & bars)
+    chart
     return
 
 
@@ -133,30 +136,34 @@ def _(mo, notice_raw_count_query, pipeline_activity_query):
 
 
 @app.cell
-def _(alt, notice_raw_count):
-    # define selection (click on bars)
-    select_bar = alt.selection_point(fields=["date"], on="click")
+def _(mo):
+    from datetime import date, timedelta
 
-    notices = (
-        alt.Chart(notice_raw_count)
-        .mark_bar()
-        .encode(
-            x=alt.X("date:T", title="Publication Date"),
-            y=alt.Y("documentCount:Q", title="Documents"),
-            color=alt.condition(
-                select_bar, alt.value("steelblue"), alt.value("lightgray")
-            ),
-        )
-        .add_params(select_bar)
+    today = date.today()
+    three_months_ago = today - timedelta(days=90)
+
+    period_start = mo.ui.date(
+        value=three_months_ago,
+        label="Start Date",
     )
-    return (notices,)
+    period_end = mo.ui.date(
+        value=today,
+        label="End Date",
+    )
+
+    return period_end, period_start, three_months_ago, today
+
+
+@app.cell
+def _(mo, three_months_ago, today):
+    period = mo.ui.range_slider(start=three_months_ago, stop=today, label="Period")
+    return
 
 
 @app.cell
 def _(mo):
-    period_start = mo.ui.date(value="2025-01-01")
-    period_end = mo.ui.date(value="2025-05-23")
-    return period_end, period_start
+    mo.ui.date(value="2022-01-01")
+    return
 
 
 @app.cell
@@ -169,15 +176,81 @@ def _(period_end, period_start):
 
 
 @app.cell
-def _(do_query, notice_raw_count_query, pd):
+def _(end_iso, start_iso):
+    notice_raw_count_query = """
+    PREFIX xsd: <http://www.w3.org/2001/XMLSchema#>
+    PREFIX epo: <http://data.europa.eu/a4g/ontology#>
+    PREFIX cdm: <http://publications.europa.eu/ontology/cdm#>
+    PREFIX skos: <http://www.w3.org/2004/02/skos/core#>
+
+    SELECT ?publicationDate ?noticeTypeUri (COUNT(?notice) AS ?documentCount)
+    WHERE {
+      GRAPH ?g {
+        ?notice a epo:Notice ;
+                epo:hasPublicationDate ?publicationDate ;
+                epo:hasNoticePublicationNumber ?publicationNumber ;
+                epo:hasNoticeType ?noticeTypeUri .
+        FILTER (?publicationDate >= "%s"^^xsd:dateTime &&
+                ?publicationDate <= "%s"^^xsd:dateTime)
+      }
+    }
+    GROUP BY ?publicationDate ?noticeTypeUri
+    """ % (start_iso, end_iso)
+    return (notice_raw_count_query,)
+
+
+@app.cell
+def _(do_query, notice_raw_count_query, notice_type_mapping, pd):
     notice_raw_count = do_query(notice_raw_count_query)
     notice_raw_count = notice_raw_count.assign(
-        date=pd.to_datetime(notice_raw_count["date"], errors="coerce"),
+        publicationDate=pd.to_datetime(notice_raw_count["publicationDate"], errors="coerce"),
         documentCount=pd.to_numeric(
             notice_raw_count["documentCount"], errors="coerce"
         ),
+        noticeTypeLabel=notice_raw_count["noticeTypeUri"].map(notice_type_mapping)
     )
     return (notice_raw_count,)
+
+
+@app.cell
+def _():
+    # This cell was cleaned up - unused chart definition removed
+    return
+
+
+@app.cell
+def _(alt, notice_raw_count):
+
+    # selection: brush on x axis
+    brush = alt.selection_interval(encodings=["x"])
+
+    # first chart: publication date histogram
+    scatter = (
+        alt.Chart(notice_raw_count)
+        .mark_bar()
+        .encode(
+            x=alt.X("publicationDate:T", title="Publication Date"),
+            y=alt.Y("documentCount:Q", title="Documents"),
+        )
+        .add_params(brush)
+    )
+
+    # second chart: notice type distribution filtered by brush
+    bars = (
+        alt.Chart(notice_raw_count)
+        .mark_bar()
+        .encode(
+            x=alt.X("sum(documentCount):Q", title="Documents"),
+            y=alt.Y("noticeTypeLabel:N", title="Notice Type"),
+            color=alt.Color("noticeTypeLabel:N", legend=None),
+            tooltip=[
+                alt.Tooltip("noticeTypeLabel:N", title="Notice Type"),
+                alt.Tooltip("sum(documentCount):Q", title="Document Count")
+            ]
+        )
+        .transform_filter(brush)
+    )
+    return bars, scatter
 
 
 @app.cell
@@ -238,26 +311,6 @@ def _(alt, pipeline_activity):
 
 @app.cell
 def _(end_iso, start_iso):
-    notice_raw_count_query = """
-    PREFIX xsd: <http://www.w3.org/2001/XMLSchema#>
-    PREFIX epo: <http://data.europa.eu/a4g/ontology#>
-    PREFIX cdm: <http://publications.europa.eu/ontology/cdm#>
-
-    SELECT ?date
-           (COUNT(?s) AS ?documentCount)
-    WHERE {
-      GRAPH ?metsNamedGraph {
-        ?s a cdm:procurement_public .
-        ?s cdm:work_date_document ?date .    
-      }
-      FILTER (?date >= "%s"^^xsd:dateTime &&
-              ?date <= "%s"^^xsd:dateTime)
-    }
-    GROUP BY ?date
-    ORDER BY ?date
-
-    """ % (start_iso, end_iso)
-
     pipeline_activity_query = """
     PREFIX xsd: <http://www.w3.org/2001/XMLSchema#>
     PREFIX epo: <http://data.europa.eu/a4g/ontology#>
@@ -283,24 +336,59 @@ def _(end_iso, start_iso):
     ORDER BY ?dateUpdated
 
     """ % (start_iso, end_iso)
-    return notice_raw_count_query, pipeline_activity_query
+    return (pipeline_activity_query,)
 
 
 @app.cell
-def _(JSON, SPARQLWrapper, pd):
+def _():
+    notice_type_labels_query = """
+    PREFIX euvoc: <http://publications.europa.eu/ontology/euvoc#>
+    PREFIX xsd: <http://www.w3.org/2001/XMLSchema#>
+    PREFIX epo: <http://data.europa.eu/a4g/ontology#>
+    PREFIX cdm: <http://publications.europa.eu/ontology/cdm#>
+    PREFIX skos: <http://www.w3.org/2004/02/skos/core#>
+
+    SELECT ?noticeTypeUri ?label
+    WHERE {
+      ?noticeTypeUri a skos:Concept ;
+          skos:topConceptOf <http://publications.europa.eu/resource/authority/notice-type> ;
+          skos:prefLabel ?label .
+      FILTER (lang(?label) = "en") .
+    }
+    """
+    return (notice_type_labels_query,)
+
+
+@app.cell
+def _(do_query, notice_type_labels_query):
+    # Fetch notice type labels (this runs once since labels never change)
+    notice_type_labels_df = do_query(notice_type_labels_query)
+
+    # Create mapping from URI to human-readable label
+    notice_type_mapping = dict(zip(
+        notice_type_labels_df["noticeTypeUri"],
+        notice_type_labels_df["label"]
+    ))
+    return (notice_type_mapping,)
+
+
+@app.cell
+def _(JSON, SPARQLWrapper, mo, pd):
     sparql_service_url = "https://publications.europa.eu/webapi/rdf/sparql"
 
 
     def do_query(sparql_query):
-        sparql = SPARQLWrapper(sparql_service_url, agent="Sparql Wrapper")
+        try:
+            sparql = SPARQLWrapper(sparql_service_url, agent="Sparql Wrapper")
+            sparql.setQuery(sparql_query)
+            sparql.setReturnFormat(JSON)
 
-        sparql.setQuery(sparql_query)
-        sparql.setReturnFormat(JSON)
-
-        # ask for the result
-        result = sparql.query().convert()
-        pd.DataFrame(result["results"]["bindings"])
-        return pd.DataFrame(result["results"]["bindings"]).map(lambda x: x["value"])
+            # ask for the result
+            result = sparql.query().convert()
+            return pd.DataFrame(result["results"]["bindings"]).map(lambda x: x["value"])
+        except Exception as e:
+            mo.md(f"⚠️ **Query Error**: {str(e)}")
+            return pd.DataFrame()  # Return empty DataFrame on error
     return (do_query,)
 
 

@@ -4,6 +4,10 @@
 #     "altair==5.4.1",
 #     "marimo",
 #     "vega-datasets==0.9.0",
+#     "pyarrow",
+#     "pandas",
+#     "requests",
+#     "SPARQLWrapper",
 # ]
 # ///
 
@@ -40,38 +44,45 @@ def _(mo, selected_date):
 
 @app.cell
 def _(do_query, notices_per_day_query):
-    notices = do_query(notices_per_day_query)
-    notices
+    notices_raw = do_query(notices_per_day_query)
+    return (notices_raw,)
+
+
+@app.cell
+def _(form_type_dict, mo, notice_type_dict, notices_raw):
+    # Map URIs to labels
+    notices = notices_raw.copy()
+    notices['noticeType'] = notices['noticeTypeUri'].map(notice_type_dict)
+    notices['formType'] = notices['formTypeUri'].map(form_type_dict)
+
+    # Create TED URL for each notice
+    notices['tedUrl'] = notices['publicationNumber'].apply(
+        lambda x: f"https://ted.europa.eu/en/notice/-/detail/{x}"
+    )
+
+    # Remove URI columns
+    notices = notices.drop(columns=['noticeTypeUri', 'formTypeUri'])
+
+    # Reorder columns
+    notices = notices[['publicationNumber', 'noticeType', 'formType', 'tedUrl']]
+
+    mo.ui.table(notices, selection=None)
     return (notices,)
 
 
 @app.cell
-def _(chart1):
-    chart1
-    return
-
-
-@app.cell
-def _(chart2):
-    chart2
-    return
-
-
-@app.cell
-def _(chart3):
-    chart3
-    return
-
-
-@app.cell
-def _(mo, notices, selected_date, ted_daily):
+def _(chart1, chart2, mo, notices, selected_date, ted_daily):
     mo.md(
         rf"""
     ## Comparison with TED API
 
-    Notices in Cellar for {selected_date.value.isoformat()}: **{len(notices)} Notices**
+    Notices reported by TED API for {selected_date.value.isoformat()}: **{ted_daily["totalNoticeCount"]} Notices**
 
-    Notices reported by TED API for the same day: **{ted_daily["totalNoticeCount"]} Notices**
+    Notices in Cellar for the same day: **{len(notices)} Notices**
+
+    ## Notice distribution
+
+    {mo.hstack([chart1, chart2])}
     """
     )
     return
@@ -97,68 +108,75 @@ def _(mo, notices_per_day_query):
 def _(selected_date):
     notices_per_day_query = """
     PREFIX epo: <http://data.europa.eu/a4g/ontology#>
-    PREFIX skos: <http://www.w3.org/2004/02/skos/core#>
     PREFIX xsd: <http://www.w3.org/2001/XMLSchema#>
 
-    SELECT ?publicationNumber ?OJSIssueNumber ?procedureType ?noticeType ?formType
+    SELECT ?publicationNumber ?noticeTypeUri ?formTypeUri
 
     WHERE {
-
-      FILTER (?publicationDate = "%s"^^xsd:date)
-
       GRAPH ?g {
         ?notice a epo:Notice ;
                 epo:hasPublicationDate ?publicationDate ;
                 epo:hasNoticePublicationNumber ?publicationNumber ;
-                 epo:hasOJSIssueNumber ?OJSIssueNumber ;
                 epo:hasNoticeType ?noticeTypeUri ;
-                epo:hasFormType ?formTypeUri ;
-                epo:refersToProcedure [
-                     a epo:Procedure ;
-                     epo:hasProcedureType ?procedureTypeUri
-               ] .
+                epo:hasFormType ?formTypeUri .    
       }
-
-      # Retrieve the label in english for noticeTypeUri
-      ?noticeTypeUri a skos:Concept ;
-                     skos:prefLabel ?noticeType .
-      FILTER (lang(?noticeType) = "en")
-
-      # Retrieve the label in english for formTypeUri
-      ?formTypeUri a skos:Concept ;
-                   skos:prefLabel ?formType .
-      FILTER (lang(?formType) = "en")
-
-      # Retrieve the label in english for procedureTypeUri
-      ?procedureTypeUri a skos:Concept ;
-                        skos:prefLabel ?procedureType .
-      FILTER (lang(?procedureType) = "en")
+      FILTER (?publicationDate = "%s"^^xsd:date)
     }
     """ % (selected_date.value.isoformat())
     return (notices_per_day_query,)
 
 
 @app.cell
-def _(JSON, SPARQLWrapper, pd):
-    sparql_service_url = "https://publications.europa.eu/webapi/rdf/sparql"
+def _(do_query):
+    # Fetch notice type labels (cached)
+    notice_type_query = """
+    PREFIX euvoc: <http://publications.europa.eu/ontology/euvoc#>
+    PREFIX xsd: <http://www.w3.org/2001/XMLSchema#>
+    PREFIX epo: <http://data.europa.eu/a4g/ontology#>
+    PREFIX cdm: <http://publications.europa.eu/ontology/cdm#>
+    PREFIX skos: <http://www.w3.org/2004/02/skos/core#>
 
+    SELECT ?noticeTypeUri ?label
+    WHERE {
+      ?noticeTypeUri a skos:Concept ;
+          skos:topConceptOf <http://publications.europa.eu/resource/authority/notice-type> ;
+          skos:prefLabel ?label .
+      FILTER (lang(?label) = "en") .
+    }
+    """
 
-    def do_query(sparql_query):
-        sparql = SPARQLWrapper(sparql_service_url, agent="Sparql Wrapper")
-
-        sparql.setQuery(sparql_query)
-        sparql.setReturnFormat(JSON)
-
-        # ask for the result
-        result = sparql.query().convert()
-        pd.DataFrame(result["results"]["bindings"])
-        return pd.DataFrame(result["results"]["bindings"]).map(lambda x: x["value"])
-    return (do_query,)
+    notice_type_labels = do_query(notice_type_query)
+    notice_type_dict = dict(zip(notice_type_labels['noticeTypeUri'], notice_type_labels['label']))
+    return (notice_type_dict,)
 
 
 @app.cell
-def _(mo):
-    selected_date = mo.ui.date(value="2025-05-23")
+def _(do_query):
+    # Fetch form type labels (cached)
+    form_type_query = """
+    PREFIX euvoc: <http://publications.europa.eu/ontology/euvoc#>
+    PREFIX xsd: <http://www.w3.org/2001/XMLSchema#>
+    PREFIX epo: <http://data.europa.eu/a4g/ontology#>
+    PREFIX cdm: <http://publications.europa.eu/ontology/cdm#>
+    PREFIX skos: <http://www.w3.org/2004/02/skos/core#>
+
+    SELECT ?formTypeUri ?label
+    WHERE {
+      ?formTypeUri a skos:Concept ;
+          skos:topConceptOf <http://publications.europa.eu/resource/authority/form-type> ;
+          skos:prefLabel ?label .
+      FILTER (lang(?label) = "en") .
+    }
+    """
+
+    form_type_labels = do_query(form_type_query)
+    form_type_dict = dict(zip(form_type_labels['formTypeUri'], form_type_labels['label']))
+    return (form_type_dict,)
+
+
+@app.cell
+def _(get_default_date, mo):
+    selected_date = mo.ui.date(value=get_default_date().isoformat())
     return (selected_date,)
 
 
@@ -166,6 +184,21 @@ def _(mo):
 def _(get_daily_notices, selected_date):
     ted_daily = get_daily_notices(selected_date.value.isoformat())
     return (ted_daily,)
+
+
+@app.cell
+def _():
+    from datetime import datetime, timedelta
+
+    def get_default_date():
+        """Get yesterday's date, but if today is Sunday, get Friday instead"""
+        today = datetime.now()
+        if today.weekday() == 6:  # Sunday is 6
+            return (today - timedelta(days=2)).date()  # Friday
+        else:
+            return (today - timedelta(days=1)).date()  # Yesterday
+
+    return (get_default_date,)
 
 
 @app.cell
@@ -194,34 +227,14 @@ def _(requests):
 def _(notices):
     import altair as alt
 
-
-    # Chart 1 - Procedure Type
+    # Chart 1 - Notice Type (Bar Chart)
     chart1 = (
         alt.Chart(notices)
-        .mark_arc(innerRadius=60)
+        .mark_bar()
         .encode(
-            color=alt.Color("procedureType:N", title="Procedure Type"),
-            theta=alt.Theta("count():Q", title="Count"),
-            tooltip=[
-                alt.Tooltip("count()", title="Count"),
-                alt.Tooltip("procedureType:N", title="Procedure Type"),
-            ],
-        )
-        .properties(
-            height=290,
-            width=250,
-            title="Procedure Type Distribution",  # You can customize each title
-        )
-        .configure_axis(grid=False)
-    )
-
-    # Chart 2 - Notice Type
-    chart2 = (
-        alt.Chart(notices)
-        .mark_arc(innerRadius=60)
-        .encode(
-            color=alt.Color("noticeType:N", title="Notice Type"),
-            theta=alt.Theta("count():Q", title="Count"),
+            x=alt.X("count():Q", title="Count"),
+            y=alt.Y("noticeType:N", title="Notice Type", sort="-x"),
+            color=alt.Color("noticeType:N", title="Notice Type", legend=None),
             tooltip=[
                 alt.Tooltip("count()", title="Count"),
                 alt.Tooltip("noticeType:N", title="Notice Type"),
@@ -229,19 +242,19 @@ def _(notices):
         )
         .properties(
             height=290,
-            width=250,
+            width=400,
             title="Notice Type Distribution",
         )
-        .configure_axis(grid=False)
     )
 
-    # Chart 3 - Form Type
-    chart3 = (
+    # Chart 2 - Form Type (Bar Chart)
+    chart2 = (
         alt.Chart(notices)
-        .mark_arc(innerRadius=60)
+        .mark_bar()
         .encode(
-            color=alt.Color("formType:N", title="Form Type"),
-            theta=alt.Theta("count():Q", title="Count"),
+            x=alt.X("count():Q", title="Count"),
+            y=alt.Y("formType:N", title="Form Type", sort="-x"),
+            color=alt.Color("formType:N", title="Form Type", legend=None),
             tooltip=[
                 alt.Tooltip("count()", title="Count"),
                 alt.Tooltip("formType:N", title="Form Type"),
@@ -249,12 +262,28 @@ def _(notices):
         )
         .properties(
             height=290,
-            width=250,
+            width=400,
             title="Form Type Distribution",
         )
-        .configure_axis(grid=False)
     )
-    return chart1, chart2, chart3
+    return chart1, chart2
+
+
+@app.cell
+def _(JSON, SPARQLWrapper, pd):
+    sparql_service_url = "https://publications.europa.eu/webapi/rdf/sparql"
+
+    def do_query(sparql_query):
+        sparql = SPARQLWrapper(sparql_service_url, agent="Sparql Wrapper")
+
+        sparql.setQuery(sparql_query)
+        sparql.setReturnFormat(JSON)
+
+        # ask for the result
+        result = sparql.query().convert()
+        pd.DataFrame(result["results"]["bindings"])
+        return pd.DataFrame(result["results"]["bindings"]).map(lambda x: x["value"])
+    return (do_query,)
 
 
 if __name__ == "__main__":
