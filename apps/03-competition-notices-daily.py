@@ -3,6 +3,8 @@
 # dependencies = [
 #     "altair==5.4.1",
 #     "marimo",
+#     "requests==2.32.5",
+#     "sparqlwrapper==2.0.0",
 #     "vega-datasets==0.9.0",
 # ]
 # ///
