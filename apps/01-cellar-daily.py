@@ -46,14 +46,20 @@ def _(do_query, notices_per_day_query):
 
 
 @app.cell
-def _(chart1, chart2, chart3, mo):
-    mo.hstack([chart1, chart2, chart3])
+def _(chart1):
+    chart1
     return
 
 
 @app.cell
-def _(chart3, mo):
-    mo.hstack([chart3])
+def _(chart2):
+    chart2
+    return
+
+
+@app.cell
+def _(chart3):
+    chart3
     return
 
 
