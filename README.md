@@ -1,5 +1,14 @@
 # TED Open data Notebooks
 
+
+## Available notebooks
+
+- [Display number of notices for certain day](https://docs.ted.europa.eu/ted-open-data-notebooks/apps/01-cellar-daily.html)
+
+- [Cellar upload activity](https://docs.ted.europa.eu/ted-open-data-notebooks/apps/02-cellar-period.html)
+
+- [Competition notices](https://docs.ted.europa.eu/ted-open-data-notebooks/apps/03-competition-notices-daily.html)
+
 ## 🚀 Usage
 
 1. Add your marimo files to the `notebooks/` or `apps/` directory
