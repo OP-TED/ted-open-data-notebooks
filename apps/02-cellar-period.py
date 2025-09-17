@@ -151,19 +151,7 @@ def _(mo):
         label="End Date",
     )
 
-    return period_end, period_start, three_months_ago, today
-
-
-@app.cell
-def _(mo, three_months_ago, today):
-    period = mo.ui.range_slider(start=three_months_ago, stop=today, label="Period")
-    return
-
-
-@app.cell
-def _(mo):
-    mo.ui.date(value="2022-01-01")
-    return
+    return period_end, period_start
 
 
 @app.cell
@@ -210,12 +198,6 @@ def _(do_query, notice_raw_count_query, notice_type_mapping, pd):
         noticeTypeLabel=notice_raw_count["noticeTypeUri"].map(notice_type_mapping)
     )
     return (notice_raw_count,)
-
-
-@app.cell
-def _():
-    # This cell was cleaned up - unused chart definition removed
-    return
 
 
 @app.cell
