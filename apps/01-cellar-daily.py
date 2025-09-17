@@ -46,6 +46,12 @@ def _(do_query, notices_per_day_query):
 
 
 @app.cell
+def _(chart1, chart2, chart3, mo):
+    mo.hstack([chart1, chart2, chart3])
+    return
+
+
+@app.cell
 def _(mo, notices, selected_date, ted_daily):
     mo.md(
         rf"""
@@ -170,6 +176,72 @@ def _(requests):
         result = response.json()
         return result
     return (get_daily_notices,)
+
+
+@app.cell
+def _(notices):
+    import altair as alt
+
+    # Chart 1 - Procedure Type
+    chart1 = (
+        alt.Chart(notices)
+        .mark_arc(innerRadius=60)
+        .encode(
+            color=alt.Color("procedureType:N", title="Procedure Type"),
+            theta=alt.Theta("count():Q", title="Count"),
+            tooltip=[
+                alt.Tooltip("count()", title="Count"),
+                alt.Tooltip("procedureType:N", title="Procedure Type"),
+            ],
+        )
+        .properties(
+            height=290,
+            width=250,
+            title="Procedure Type Distribution",  # You can customize each title
+        )
+        .configure_axis(grid=False)
+    )
+
+    # Chart 2 - Notice Type
+    chart2 = (
+        alt.Chart(notices)
+        .mark_arc(innerRadius=60)
+        .encode(
+            color=alt.Color("noticeType:N", title="Notice Type"),
+            theta=alt.Theta("count():Q", title="Count"),
+            tooltip=[
+                alt.Tooltip("count()", title="Count"),
+                alt.Tooltip("noticeType:N", title="Notice Type"),
+            ],
+        )
+        .properties(
+            height=290,
+            width=250,
+            title="Notice Type Distribution",
+        )
+        .configure_axis(grid=False)
+    )
+
+    # Chart 3 - Form Type
+    chart3 = (
+        alt.Chart(notices)
+        .mark_arc(innerRadius=60)
+        .encode(
+            color=alt.Color("formType:N", title="Form Type"),
+            theta=alt.Theta("count():Q", title="Count"),
+            tooltip=[
+                alt.Tooltip("count()", title="Count"),
+                alt.Tooltip("formType:N", title="Form Type"),
+            ],
+        )
+        .properties(
+            height=290,
+            width=250,
+            title="Form Type Distribution",
+        )
+        .configure_axis(grid=False)
+    )
+    return chart1, chart2, chart3
 
 
 if __name__ == "__main__":
