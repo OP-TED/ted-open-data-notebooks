@@ -32,9 +32,11 @@ def _():
 def _(mo, selected_date):
     mo.md(
         rf"""
-    # Competition Notices Published on a Specific Date
+    # Competition Notices in Cellar by Date
 
-    Pick a date to analyze. The dashboard will automatically update to reflect your selection.
+    Choose a date to analyze. The dashboard will update automatically based on your selection.
+
+    The data shown represents the competition notices available in Cellar for the chosen date.
 
     Selected date: {selected_date}
     """
@@ -62,7 +64,7 @@ def _(do_query, notices_per_day_query):
 
 @app.cell
 def _(create_country_map, notices):
-    map = None 
+    map = None
 
     if len(notices):
         df = process_your_data(notices)
