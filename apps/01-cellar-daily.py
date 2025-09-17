@@ -53,7 +53,7 @@ def _(mo, notices, selected_date, ted_daily):
 
     Notices in Cellar for {selected_date.value.isoformat()}: **{len(notices)} Notices**
 
-    Notices reported by TED API for the same day: **{ted_daily['totalNoticeCount']} Notices**
+    Notices reported by TED API for the same day: **{ted_daily["totalNoticeCount"]} Notices**
     """
     )
     return
@@ -123,6 +123,8 @@ def _(selected_date):
 @app.cell
 def _(JSON, SPARQLWrapper, pd):
     sparql_service_url = "https://publications.europa.eu/webapi/rdf/sparql"
+
+
     def do_query(sparql_query):
         sparql = SPARQLWrapper(sparql_service_url, agent="Sparql Wrapper")
 
@@ -152,7 +154,8 @@ def _(get_daily_notices, selected_date):
 def _(requests):
     def get_daily_notices(date: str) -> dict:
         date_formatted = date.replace("-", "")
-        api_url = "https://api.ted.europa.eu/v3/notices/search"
+        # api_url = "https://api.ted.europa.eu/v3/notices/search" # Has CORS problems
+        api_url = "https://api.acceptance.ted.europa.eu/v3"
 
         request_body = {
             "query": f"publication-date = {date_formatted}",
