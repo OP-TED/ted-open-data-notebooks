@@ -52,6 +52,12 @@ def _(chart1, chart2, chart3, mo):
 
 
 @app.cell
+def _(chart3, mo):
+    mo.hstack([chart3])
+    return
+
+
+@app.cell
 def _(mo, notices, selected_date, ted_daily):
     mo.md(
         rf"""
@@ -161,7 +167,7 @@ def _(requests):
     def get_daily_notices(date: str) -> dict:
         date_formatted = date.replace("-", "")
         # api_url = "https://api.ted.europa.eu/v3/notices/search" # Has CORS problems
-        api_url = "https://api.acceptance.ted.europa.eu/v3"
+        api_url = "https://api.acceptance.ted.europa.eu/v3/notices/search"
 
         request_body = {
             "query": f"publication-date = {date_formatted}",
@@ -181,6 +187,7 @@ def _(requests):
 @app.cell
 def _(notices):
     import altair as alt
+
 
     # Chart 1 - Procedure Type
     chart1 = (
