@@ -79,7 +79,7 @@ def _(alt, data):
             country_counts.columns = [country_col, count_col]
         else:
             country_counts = df.groupby(country_col)[count_col].sum().reset_index()
-        
+
         # Load world map data from vega_datasets
         countries = alt.topo_feature(data.world_110m.url, 'countries')
 
@@ -144,14 +144,28 @@ def _(alt, data):
     return (create_country_map,)
 
 
+@app.cell
+def _():
+    from datetime import datetime, timedelta
+
+    def get_default_date():
+        """Get yesterday's date, but if today is Sunday, get Friday instead"""
+        today = datetime.now()
+        if today.weekday() == 6:  # Sunday is 6
+            return (today - timedelta(days=2)).date()  # Friday
+        else:
+            return (today - timedelta(days=1)).date()  # Yesterday
+    return (get_default_date,)
+
+
 @app.function
 def process_your_data(df):
     # Get country mapping
     country_mapping = get_country_mapping()
-    
+
     # Filter for mapped countries only
     mapped_df = df[df['country'].isin(country_mapping.keys())].copy()
-    
+
     # Check if any countries were mapped
     if len(mapped_df) == 0:
         available_countries = df['country'].unique().tolist()
@@ -159,19 +173,19 @@ def process_your_data(df):
         raise ValueError(f"No countries found in mapping! "
                         f"Available countries in data: {available_countries}. "
                         f"Countries in mapping: {mapped_countries}")
-    
+
     # Count publications per country
     country_counts = mapped_df['country'].value_counts().reset_index()
     country_counts.columns = ['country_code', 'count']
-    
+
     # Map to numeric country IDs
     country_counts['country'] = country_counts['country_code'].map(country_mapping)
     country_counts = country_counts.dropna(subset=['country'])
-    
+
     # Final check - if mapping failed completely
     if len(country_counts) == 0:
         raise ValueError("All country mappings failed! No valid country codes found.")
-    
+
     return country_counts[['country', 'count']]
 
 
@@ -226,7 +240,7 @@ def _(selected_date):
                 ]
             ]
         }
-    
+
         ?procedureTypeUri a skos:Concept ;
             skos:prefLabel ?procedureType.
         FILTER (lang(?procedureType) = "en")
@@ -255,8 +269,8 @@ def _(JSON, SPARQLWrapper, pd):
 
 
 @app.cell
-def _(mo):
-    selected_date = mo.ui.date(value="2025-05-23")
+def _(get_default_date, mo):
+    selected_date = mo.ui.date(value=get_default_date().isoformat())
     return (selected_date,)
 
 
