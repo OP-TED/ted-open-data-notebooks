@@ -32,7 +32,7 @@ def _():
 def _(mo, selected_date):
     mo.md(
         rf"""
-    # Notice Statistics for a single day
+    # Cellar Notice Statistics for a single day
 
     Choose the date for your analysis. The dashboard will automatically update based on your selection.
 
