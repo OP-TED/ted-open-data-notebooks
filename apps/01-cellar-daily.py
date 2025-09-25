@@ -106,9 +106,9 @@ def _(
 def _(mo, notices_per_day_query):
     mo.md(
         rf"""
-    (## Queries
+    ## Queries
 
-    The following query was used
+    The following SPARQL query was used in Cellar
 
     ```sparql
     {notices_per_day_query}
@@ -212,6 +212,43 @@ def _(fetch_ted_daily_notices, notices_raw, selected_date):
     return notice_types, ted_daily_same_set
 
 
+@app.function
+def build_ted_query(date,notice_types):
+    date_formatted = date.replace("-", "")
+    # Base condition
+    conditions = [f"publication-date = {date_formatted}"]
+
+    # Add notice type filter if provided
+    if notice_types:
+        type_conditions = [f"notice-type = {nt}" for nt in notice_types]
+        conditions.append("(" + " or ".join(type_conditions) + ")")
+
+    query_str = " and ".join(conditions)
+    return query_str
+
+
+@app.cell
+def _(requests):
+    def fetch_ted_daily_notices(date: str, notice_types: list[str] | None = None) -> dict:
+        api_url = "https://api.acceptance.ted.europa.eu/v3/notices/search"
+
+        query_str = build_ted_query(date,notice_types)
+
+        request_body = {
+            "query": query_str,
+            "scope": "ALL",
+            "fields": ["publication-date", "notice-type"],
+        }
+
+        response = requests.post(
+            api_url, headers={"Accept": "application/json"}, json=request_body
+        )
+        response.raise_for_status()
+
+        return response.json()
+    return (fetch_ted_daily_notices,)
+
+
 @app.cell
 def _():
     from datetime import datetime, timedelta
@@ -233,38 +270,6 @@ def get_distinct_notice_types(notices_raw) -> list[str]:
     if uris is None:
         return []
     return sorted({uri.rsplit("/", 1)[-1] for uri in uris})
-
-
-@app.cell
-def _(requests):
-
-    def fetch_ted_daily_notices(date: str, notice_types: list[str] | None = None) -> dict:
-        date_formatted = date.replace("-", "")
-        api_url = "https://api.acceptance.ted.europa.eu/v3/notices/search"
-
-        # Base condition
-        conditions = [f"publication-date = {date_formatted}"]
-
-        # Add notice type filter if provided
-        if notice_types:
-            type_conditions = [f"notice-type = {nt}" for nt in notice_types]
-            conditions.append("(" + " or ".join(type_conditions) + ")")
-
-        query_str = " and ".join(conditions)
-
-        request_body = {
-            "query": query_str,
-            "scope": "ALL",
-            "fields": ["publication-date", "notice-type"],
-        }
-
-        response = requests.post(
-            api_url, headers={"Accept": "application/json"}, json=request_body
-        )
-        response.raise_for_status()
-
-        return response.json()
-    return (fetch_ted_daily_notices,)
 
 
 @app.cell
