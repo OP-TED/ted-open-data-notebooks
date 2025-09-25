@@ -85,11 +85,15 @@ def _(
         rf"""
     ## Comparison with TED API
 
-    - Notices present in Cellar for the same day: **{len(notices)}**
-    - Notice types found in Cellar: {notice_types}
-    - TED API notices matching these types: **{ted_daily_same_set["totalNoticeCount"]}**
-    - Total notices reported by TED API for {selected_date.value.isoformat()}: **{ted_daily["totalNoticeCount"]}**
-  
+    ### Day: {selected_date.value.isoformat()}
+
+    - Cellar
+        - Number of notices: **{len(notices)}**
+        - Notice types found: {notice_types}
+    - TED API
+        - Notices matching these types: **{ted_daily_same_set["totalNoticeCount"]}**
+        - Total notices reported: **{ted_daily["totalNoticeCount"]}**
+
     ## Notice distribution
 
     {mo.hstack([chart1, chart2])}
