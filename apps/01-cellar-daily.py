@@ -50,36 +50,46 @@ def _(do_query, notices_per_day_query):
 
 @app.cell
 def _(form_type_dict, mo, notice_type_dict, notices_raw):
-    # Map URIs to labels
     notices = notices_raw.copy()
-    notices['noticeType'] = notices['noticeTypeUri'].map(notice_type_dict)
-    notices['formType'] = notices['formTypeUri'].map(form_type_dict)
+    if (len(notices)):
+        notices['noticeType'] = notices['noticeTypeUri'].map(notice_type_dict)
+        notices['formType'] = notices['formTypeUri'].map(form_type_dict)
 
-    # Create TED URL for each notice
-    notices['tedUrl'] = notices['publicationNumber'].apply(
-        lambda x: f"https://ted.europa.eu/en/notice/-/detail/{x}"
-    )
+        # Create TED URL for each notice
+        notices['tedUrl'] = notices['publicationNumber'].apply(
+            lambda x: f"https://ted.europa.eu/en/notice/-/detail/{x}"
+        )
 
-    # Remove URI columns
-    notices = notices.drop(columns=['noticeTypeUri', 'formTypeUri'])
+        # Remove URI columns
+        notices = notices.drop(columns=['noticeTypeUri', 'formTypeUri'])
 
-    # Reorder columns
-    notices = notices[['publicationNumber', 'noticeType', 'formType', 'tedUrl']]
+        # Reorder columns
+        notices = notices[['publicationNumber', 'noticeType', 'formType', 'tedUrl']]
 
     mo.ui.table(notices, selection=None)
     return (notices,)
 
 
 @app.cell
-def _(chart1, chart2, mo, notices, selected_date, ted_daily):
+def _(
+    chart1,
+    chart2,
+    mo,
+    notice_types,
+    notices,
+    selected_date,
+    ted_daily,
+    ted_daily_same_set,
+):
     mo.md(
         rf"""
     ## Comparison with TED API
 
-    Notices reported by TED API for {selected_date.value.isoformat()}: **{ted_daily["totalNoticeCount"]} Notices**
-
-    Notices in Cellar for the same day: **{len(notices)} Notices**
-
+    - Notices present in Cellar for the same day: **{len(notices)}**
+    - Notice types found in Cellar: {notice_types}
+    - TED API notices matching these types: **{ted_daily_same_set["totalNoticeCount"]}**
+    - Total notices reported by TED API for {selected_date.value.isoformat()}: **{ted_daily["totalNoticeCount"]}**
+  
     ## Notice distribution
 
     {mo.hstack([chart1, chart2])}
@@ -92,7 +102,7 @@ def _(chart1, chart2, mo, notices, selected_date, ted_daily):
 def _(mo, notices_per_day_query):
     mo.md(
         rf"""
-    ## Queries
+    (## Queries
 
     The following query was used
 
@@ -181,9 +191,21 @@ def _(get_default_date, mo):
 
 
 @app.cell
-def _(get_daily_notices, selected_date):
-    ted_daily = get_daily_notices(selected_date.value.isoformat())
+def _(fetch_ted_daily_notices, selected_date):
+    ted_daily = fetch_ted_daily_notices(selected_date.value.isoformat())
     return (ted_daily,)
+
+
+@app.cell
+def _(fetch_ted_daily_notices, notices_raw, selected_date):
+    notice_types = get_distinct_notice_types(notices_raw)
+
+    ted_daily_same_set = (
+        {"totalNoticeCount": 0, "results": []}
+        if not notice_types
+        else fetch_ted_daily_notices(selected_date.value.isoformat(), notice_types)
+    )
+    return notice_types, ted_daily_same_set
 
 
 @app.cell
@@ -201,26 +223,44 @@ def _():
     return (get_default_date,)
 
 
+@app.function
+def get_distinct_notice_types(notices_raw) -> list[str]:
+    uris = getattr(notices_raw, "noticeTypeUri", None)
+    if uris is None:
+        return []
+    return sorted({uri.rsplit("/", 1)[-1] for uri in uris})
+
+
 @app.cell
 def _(requests):
-    def get_daily_notices(date: str) -> dict:
+
+    def fetch_ted_daily_notices(date: str, notice_types: list[str] | None = None) -> dict:
         date_formatted = date.replace("-", "")
-        # api_url = "https://api.ted.europa.eu/v3/notices/search" # Has CORS problems
         api_url = "https://api.acceptance.ted.europa.eu/v3/notices/search"
 
+        # Base condition
+        conditions = [f"publication-date = {date_formatted}"]
+
+        # Add notice type filter if provided
+        if notice_types:
+            type_conditions = [f"notice-type = {nt}" for nt in notice_types]
+            conditions.append("(" + " or ".join(type_conditions) + ")")
+
+        query_str = " and ".join(conditions)
+
         request_body = {
-            "query": f"publication-date = {date_formatted}",
+            "query": query_str,
             "scope": "ALL",
-            "fields": ["publication-date"],
+            "fields": ["publication-date", "notice-type"],
         }
 
         response = requests.post(
             api_url, headers={"Accept": "application/json"}, json=request_body
         )
+        response.raise_for_status()
 
-        result = response.json()
-        return result
-    return (get_daily_notices,)
+        return response.json()
+    return (fetch_ted_daily_notices,)
 
 
 @app.cell
