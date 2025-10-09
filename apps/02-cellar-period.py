@@ -263,8 +263,13 @@ def _(alt, pipeline_activity):
         .encode(
             x=alt.X("dateUpdated:T", title="Cellar upload Date"),
             y=alt.Y("documentCount:Q", title="Number of documents"),
+            tooltip=[
+                alt.Tooltip("dateUpdated:T", title="Date"),
+                alt.Tooltip("documentCount:Q", title="Documents"),
+            ],
         )
     )
+
     return (number_of_uploads,)
 
 
